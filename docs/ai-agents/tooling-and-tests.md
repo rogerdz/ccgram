@@ -25,13 +25,15 @@ Hook/events: `tests/ccgram/test_hook.py`, `tests/ccgram/handlers/test_hook_event
 
 Cleanup/lifecycle: `tests/ccgram/handlers/test_cleanup.py`, `tests/ccgram/handlers/status/test_topic_emoji.py`, `tests/ccgram/handlers/topics/test_topic_lifecycle.py`.
 
-Providers: `tests/ccgram/providers/test_contracts.py`, `tests/ccgram/providers/test_jsonl_providers.py`, `tests/ccgram/providers/test_autodetect.py`.
+Providers: `tests/ccgram/providers/test_contracts.py`, `tests/ccgram/providers/test_jsonl_providers.py`, `tests/ccgram/providers/test_autodetect.py`, `tests/ccgram/providers/test_picker_capability_drift.py` (picker commands subset + bare-name format).
 
 Shell/LLM: `tests/ccgram/providers/test_shell.py`, `tests/ccgram/handlers/shell/test_shell_commands.py`, `tests/ccgram/handlers/shell/test_shell_capture.py`, `tests/ccgram/handlers/shell/test_shell_prompt_orchestrator.py`.
 
 Voice: `tests/ccgram/handlers/voice/test_voice_handler.py`.
 
 Live view: `tests/ccgram/handlers/live/test_live_view.py`.
+
+Screenshot / scrollback capture: `tests/ccgram/test_last_unit.py`.
 
 Polling/periodic: `tests/ccgram/handlers/polling/test_polling_coordinator.py`, `tests/ccgram/handlers/polling/test_polling_strategies.py`, `tests/ccgram/handlers/polling/test_polling_types_purity.py`, `tests/ccgram/handlers/polling/test_status_polling.py`.
 

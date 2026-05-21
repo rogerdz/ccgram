@@ -180,7 +180,13 @@ With hook-runner installed, Pi `Stop` hooks mark the topic ready immediately and
 
 ### Toolbar
 
-Pi's default toolbar omits Mode/Think/YOLO (pi has no mode cycling): Row 1 `Screen, Ctrl-C, Live`, Row 2 `Esc, Enter, Tab`, Row 3 `Send, Close`. Override with a `[providers.pi]` block in `~/.ccgram/toolbar.toml`.
+Pi's default toolbar omits Mode/Think/YOLO (pi has no mode cycling) and adds a dedicated nav row for driving Pi's `/model` and `/session` pickers:
+
+- Row 1: `📷 Screen, ⏹ Ctrl-C, 📺 Live`
+- Row 2: `⎋ Esc, ⇥ Tab, π Model`
+- Row 3: `🔼 Up, ⏎ Enter, 🔽 Down, 📤 Send, ✖ Close`
+
+Override with a `[providers.pi]` block in `~/.ccgram/toolbar.toml`.
 
 ## Shell
 

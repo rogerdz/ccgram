@@ -34,12 +34,19 @@ Outbound agent output (provider transcript/event → Telegram):
 3. `handlers/messaging_pipeline/message_queue.py` enforces ordering, merge rules, rate limits. Worker takes a `TelegramClient`.
 4. `handlers/messaging_pipeline/message_sender.py` delivers via the Protocol.
 
+Screenshots (`/screenshot`, 📷 status-bar button):
+
+1. `handlers/live/screenshot_callbacks.py` calls `last_unit.capture_for_screenshot(window_id)`.
+2. `last_unit.py` calls `tmux_manager.capture_pane_scrollback()` (default 500 lines, `CCGRAM_SCREENSHOT_HISTORY`).
+3. For shell topics, `last_unit.extract_last_shell_block()` slices the last command+output using prompt markers; other providers get full scrollback.
+4. `screenshot.py` renders ANSI text to PNG; result sent as photo.
+
 Live view (terminal → auto-refresh screenshots):
 
 1. User taps Live in `handlers/live/screenshot_callbacks.py`.
 2. `handlers/live/live_view.py` registers active view for the topic.
 3. `handlers/polling/periodic_tasks.py` calls `live_view.tick_live_views()` every `config.live_view_interval` seconds.
-4. Each tick captures the pane via `tmux_manager.py`, hashes content, edits via `editMessageMedia` only when changed.
+4. Each tick captures the pane via `tmux_manager.py` (viewport only — unchanged from pre-scrollback), hashes content, edits via `editMessageMedia` only when changed.
 5. Auto-stops after `config.live_view_timeout` or when user taps Stop.
 
 Recovery (dead/missing session):

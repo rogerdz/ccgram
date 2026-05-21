@@ -18,11 +18,18 @@ Change monitor/event dispatch:
 
 Change provider behavior (commands, parsing, capabilities):
 
-- `src/ccgram/providers/base.py` for contract + capabilities.
+- `src/ccgram/providers/base.py` for contract + capabilities (including `tui_picker_commands`).
 - `src/ccgram/providers/__init__.py` for per-window resolution.
 - `src/ccgram/providers/{claude,codex,gemini,pi,shell}.py` for provider behavior.
 - `src/ccgram/providers/pi_discovery.py` + `pi_format.py` for Pi command discovery + transcript parsing.
 - `src/ccgram/providers/codex_format.py` for interactive prompt text normalization.
+
+Change picker-hint behavior (hint shown when a TUI picker slash command is forwarded):
+
+- `src/ccgram/providers/base.py` — `ProviderCapabilities.tui_picker_commands` frozenset.
+- `src/ccgram/handlers/commands/forward.py` — `_picker_hint()` introspects toolbar layout + picker set.
+- Per-provider sets: Claude (12), Codex (5), Gemini (12), Pi (6). Shell has none.
+- Drift guard: `tests/ccgram/providers/test_picker_capability_drift.py` asserts picker commands are a subset of each provider's builtin list.
 
 Change shell command generation:
 
@@ -82,7 +89,7 @@ Change Telegram bot API surface:
 
 - `src/ccgram/telegram_client.py`: add Protocol methods only when a handler needs them; mirror in `PTBTelegramClient` (delegation) and `FakeTelegramClient` (recording + default return). Never import `telegram.Bot` from inside `handlers/`.
 
-Change screenshot rendering: `src/ccgram/screenshot.py` only.
+Change screenshot rendering: `src/ccgram/screenshot.py` (image rendering) and `src/ccgram/last_unit.py` (scrollback capture + shell marker extraction). Live view uses `tmux_manager.capture_pane` directly; `/screenshot` and the 📷 button go through `capture_for_screenshot` in `last_unit.py`.
 
 Change tmux behavior: `src/ccgram/tmux_manager.py` only.
 
@@ -109,7 +116,7 @@ Add or change live view:
 
 - `handlers/live/live_view.py` for view sessions + ticking.
 - `handlers/polling/periodic_tasks.py` for tick scheduling.
-- `handlers/live/screenshot_callbacks.py` for the Live button.
+- `handlers/live/screenshot_callbacks.py` for the Live button and 📷 /screenshot; scrollback capture routes through `last_unit.capture_for_screenshot`.
 
 ## Contracts You Must Not Break
 
@@ -153,6 +160,11 @@ Symptom: live view not refreshing
 - Inspect `handlers/live/live_view.py` active views dict + tick interval.
 - Check `handlers/polling/periodic_tasks.py` for tick scheduling.
 - Verify screenshot capture in `screenshot.py` and tmux pane availability.
+
+Symptom: `/screenshot` or 📷 button shows only the visible viewport (truncated output)
+
+- `/screenshot` now goes through `last_unit.capture_for_screenshot` which calls `tmux_manager.capture_pane_scrollback`. Check `CCGRAM_SCREENSHOT_HISTORY` (default 500 lines).
+- For shell topics: `last_unit.extract_last_shell_block` uses prompt markers — if markers are absent/misconfigured, it falls back to full scrollback.
 
 Symptom: `RuntimeError("... not wired")` or `RuntimeError("... already registered")` at startup
 
