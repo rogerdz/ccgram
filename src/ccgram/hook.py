@@ -646,6 +646,57 @@ def _hook_status(provider_name: str = "claude") -> int:  # noqa: PLR0911
     return 1
 
 
+def _resolve_herdr_tab_id(pane_id: str) -> str | None:
+    """Resolve a herdr pane id to its containing tab id.
+
+    Runs ``herdr pane get <pane_id>`` and extracts ``result["pane"]["tab_id"]``.
+    The socket path is picked up from ``$HERDR_SOCKET_PATH`` by the herdr CLI
+    automatically (same as the multiplexer backend's subprocess runner).
+
+    Returns None on any failure (herdr not installed, socket down, pane gone)
+    so the caller degrades gracefully to the pane id.
+    """
+    try:
+        result = subprocess.run(
+            ["herdr", "pane", "get", pane_id],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        logger.warning("herdr pane get failed for pane %s: %s", pane_id, exc)
+        return None
+    if result.returncode != 0:
+        logger.warning(
+            "herdr pane get returned non-zero for pane %s (rc=%d): %s",
+            pane_id,
+            result.returncode,
+            result.stderr.strip(),
+        )
+        return None
+    try:
+        payload = json.loads(result.stdout)
+    except (json.JSONDecodeError, ValueError) as exc:
+        logger.warning(
+            "herdr pane get returned unparseable JSON for pane %s: %s", pane_id, exc
+        )
+        return None
+    if not isinstance(payload, dict):
+        logger.warning(
+            "herdr pane get returned unexpected type %s for pane %s",
+            type(payload).__name__,
+            pane_id,
+        )
+        return None
+    tab_id = payload.get("result", {}).get("pane", {}).get("tab_id")
+    if not isinstance(tab_id, str) or not tab_id:
+        logger.warning(
+            "herdr pane get missing tab_id for pane %s (payload=%r)", pane_id, payload
+        )
+        return None
+    return tab_id
+
+
 def _resolve_window_id(pane_id: str) -> tuple[str, str, str, str] | None:
     """Resolve tmux pane ID to (session_window_key, window_id, window_name, pane_tty).
 
@@ -1025,7 +1076,7 @@ def _refresh_session_map_if_stale(
     ):
         return
     # Backend prefix token: split on the FIRST colon so herdr keys
-    # ("herdr:w2:p1") yield "herdr", not "herdr:w2" (the pane id has a colon).
+    # ("herdr:w2:t1") yield "herdr", not "herdr:w2" (the tab id has a colon).
     tmux_session_name = session_window_key.split(":", 1)[0]
     _update_session_map(
         session_window_key,
@@ -1091,14 +1142,25 @@ def _locate_primary_window(
 
     Identity resolution is backend-neutral via ``resolve_self_identity``: tmux
     panes resolve through ``_resolve_window_id`` (``display-message``), herdr
-    panes through ``$HERDR_PANE_ID``. The tmux branch is byte-identical to the
-    previous direct ``_resolve_window_id`` path.
+    panes resolve pane→tab via ``_resolve_herdr_tab_id`` so the session_map key
+    becomes ``herdr:<tab_id>`` (matching ``list_windows``).
     """
-    identity = resolve_self_identity(os.environ, tmux_query=_resolve_window_id)
+    identity = resolve_self_identity(
+        os.environ,
+        tmux_query=_resolve_window_id,
+        herdr_query=_resolve_herdr_tab_id,
+    )
     if identity is None:
         if not os.environ.get("TMUX_PANE") and not os.environ.get("HERDR_PANE_ID"):
             logger.warning(
                 "Neither TMUX_PANE nor HERDR_PANE_ID set, cannot determine window"
+            )
+        elif os.environ.get("HERDR_PANE_ID"):
+            logger.warning(
+                "HERDR_PANE_ID=%s set but tab resolution failed "
+                "(herdr not installed, socket down, or pane gone); "
+                "hook event dropped",
+                os.environ.get("HERDR_PANE_ID"),
             )
         return None
     logger.debug(
@@ -1174,7 +1236,7 @@ def _process_hook_stdin(provider_name: str | None = None) -> None:
 
     if event == "SessionStart":
         # Backend prefix token (see _refresh_session_map_if_stale): split on the
-        # first colon so herdr keys ("herdr:w2:p1") yield "herdr".
+        # first colon so herdr keys ("herdr:w2:t1") yield "herdr".
         tmux_session_name = session_window_key.split(":", 1)[0]
         transcript_path = _resolve_transcript_path(
             detected_provider,

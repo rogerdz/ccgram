@@ -17,6 +17,7 @@ from telegram.error import BadRequest, TelegramError
 from ... import window_query
 from ...config import config
 from ...session import session_manager
+from ...session_map import session_map_prefix
 from ...telegram_client import PTBTelegramClient, TelegramClient
 from ...thread_router import thread_router
 from ...multiplexer import multiplexer as tmux_manager
@@ -166,7 +167,7 @@ async def _kill_expired_unbound(now: float, timeout: float) -> None:
         from ...topic_state_registry import topic_state
 
         topic_state.clear_window(wid)
-        qualified_id = f"{config.tmux_session_name}:{wid}"
+        qualified_id = f"{session_map_prefix()}{wid}"
         topic_state.clear_qualified(qualified_id)
         logger.info("auto_killed_unbound_window", window_id=wid)
 
