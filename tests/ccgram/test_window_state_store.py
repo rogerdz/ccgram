@@ -536,6 +536,42 @@ class TestSetWindowProvider:
         store.set_window_provider("@1", "codex", new_provider_supports_hook=True)
         assert store.window_states["@1"].session_id == "keep-me"
 
+    def test_hook_to_hook_switch_invokes_callback(
+        self, store: WindowStateStore
+    ) -> None:
+        """Regression: hook-to-hook switch (e.g. claude -> pi) must clear the stale
+        session_map.json entry, or the poll loop and the live hook fight each other
+        and spam 'Corrected provider' warnings every poll cycle."""
+        called: list[str] = []
+        store._on_hookless_provider_switch = called.append
+        state = store.get_window_state("@1")
+        state.provider_name = "claude"
+        store.set_window_provider("@1", "pi", new_provider_supports_hook=True)
+        assert called == ["@1"]
+
+    def test_hook_to_hook_switch_does_not_clear_session_fields(
+        self, store: WindowStateStore
+    ) -> None:
+        """Hook providers update session/transcript via their own hooks;
+        the session fields must survive a hook-to-hook provider change."""
+        state = store.get_window_state("@1")
+        state.provider_name = "claude"
+        state.session_id = "keep-me"
+        state.transcript_path = "/keep/me.jsonl"
+        store.set_window_provider("@1", "pi", new_provider_supports_hook=True)
+        assert store.window_states["@1"].session_id == "keep-me"
+        assert store.window_states["@1"].transcript_path == "/keep/me.jsonl"
+
+    def test_same_hook_provider_does_not_invoke_callback(
+        self, store: WindowStateStore
+    ) -> None:
+        called: list[str] = []
+        store._on_hookless_provider_switch = called.append
+        state = store.get_window_state("@1")
+        state.provider_name = "pi"
+        store.set_window_provider("@1", "pi", new_provider_supports_hook=True)
+        assert called == []
+
     def test_empty_provider_name_reset_does_not_trigger_hookless_callback(
         self, store: WindowStateStore
     ) -> None:
